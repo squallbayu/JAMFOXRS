@@ -9,7 +9,7 @@ Display jam untuk motor listrik Polytron Fox R/S disertai display suhu kendaraan
 ## Features
 
 - Menampilkan jam
-- Menampilkan suhu controller, votol, dan baterai
+- Menampilkan suhu controller, bldc, dan baterai
 - Menampilkan speed 3 digit untuk mengatasi limitasi speedo bawaan yang hanya dua digit
 - Notifikasi Cruise aktif
 - Pindah Halaman layar dengan menakan tombol
