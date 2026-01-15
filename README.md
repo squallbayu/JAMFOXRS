@@ -1,89 +1,317 @@
-# JAMFOXRS
+
+# DISPLAY JAM CUSTOM MOTOR LISTRIK POLYTRON FOX R/S
+
 Display jam untuk motor listrik Polytron Fox R/S disertai display suhu kendaraan secara realtime
 
+
+
+
 ## Features
-- **Dual Page Display**: 
-  - Page 1: Clock dengan jam besar dan tanggal
-  - Page 2: Temperature dari CAN bus (ECU, Motor, Baterai)
-- **RTC DS3231**: Waktu real-time dengan backup baterai
-- **CAN Bus Interface**: Membaca data suhu dari sistem EV
-- **Serial Command Interface**: Konfigurasi via Serial Monitor
-- **Setup Mode**: Mode konfigurasi dengan indikator
-- **Button Navigation**: Tombol untuk ganti halaman
 
-## Hardware Requirements
+- Menampilkan jam
+- Menampilkan suhu controller, votol, dan baterai
+- Menampilkan speed 3 digit untuk mengatasi limitasi speedo bawaan yang hanya dua digit
+- Notifikasi Cruise aktif
+- Pindah Halaman layar dengan menakan tombol
+
+
+## Bahan/Alat yang Dibutuhkan
 - ESP32 DOIT DEVKIT V1
-- OLED 128x32 (SSD1306, I2C)
-- DS3231 RTC dengan baterai CR2032
-- CAN Bus Transceiver (SN65HVD230) Kode CJMCU-230
-- Push button
-- Power supply 5V/3.3V
+- RTC DS3231 + IC AT24C32
+- Baterai jam CR2032
+- CJMCU-230
+- SN65HVD230 dengan kode CJMCU-230 (BUKAN MCP2515)
+- Step down ke 5v (jika ambil dari reducer 12v ke 5v)
+## SOFTWARE dan DRIVER
+### ARDUINO IDE
+download di https://www.arduino.cc/en/software/
+### DRIVER
+#### Untuk macOS:
+- CP210x: https://www.silabs.com/developers/usb-to-uart-bridge-vcp-drivers
+- CH340: Otomatis terinstall di macOS High Sierra ke atas
+#### Untuk Windows:
+- CP210x: https://www.silabs.com/developers/usb-to-uart-bridge-vcp-drivers
+- CH340: http://www.wch.cn/download/CH341SER_EXE.html
 
-## Pin Connections
-| ESP32 Pin | Connected To |
-|-----------|--------------|
-| GPIO16    | OLED SDA + RTC SDA |
-| GPIO17    | OLED SCL + RTC SCL |
-| GPIO22    | CAN Transmitter (TX) |
-| GPIO21    | CAN Receiver (RX) |
-| GPIO25    | Push Button (to GND) |
-| 3.3V      | OLED VCC, RTC VCC |
-| GND       | All grounds |
+## Library
+### Adafruit SSD1306 (untuk OLED Display)
+Library: Adafruit GFX Library by Adafruit  
+Instal via: Library Manager (cari "Adafruit GFX")
+Versi: 1.11.9 atau yang terbaru
+### Adafruit GFX Library (dependency untuk SSD1306)
+Library: Adafruit GFX Library by Adafruit  
+Instal via: Library Manager (cari "Adafruit GFX")
+Versi: 1.11.9 atau yang terbaru
+### RTClib by Adafruit
+Library: RTClib by Adafruit
+Instal via: Library Manager (cari "RTClib")
+Versi: 2.1.3 atau yang terbaru
+### 
 
-## Project Structure
-- `EVDisplayRTC.ino` - Main file
-- `config.h` - Pin configuration
-- `display.h/cpp` - OLED display module
-- `canbus.h/cpp` - CAN bus reader
-- `rtc.h/cpp` - DS3231 RTC module
+## PIN DIAGRAM
 
-## Installation
-1. Install Arduino IDE dengan ESP32 board support
-2. Install libraries: Adafruit SSD1306, Adafruit GFX
-3. Upload semua file ke ESP32
-4. Open Serial Monitor (115200 baud)
+### ESP32 PIN DIAGRAM
+```
+┌─────────────────────────────────────────────┐
+│              ESP32 DEV MODULE               │
+│                                             │
+│  [3V3] ────○ [EN]                           │
+│  [GND] ────○ [VP]                           │
+│  [D13] ────○ [D34]                          │
+│  [D12] ────○ [D35]                          │
+│  [D14] ────○ [D32]                          │
+│  [D27] ────○ [D33]                          │
+│  [D26] ────○ [D25] ←── BUTTON               │
+│  [D25] ────○ [D26]                          │
+│  [D33] ────○ [D27]                          │
+│  [D32] ────○ [D14]                          │
+│  [D35] ────○ [D12]                          │
+│  [D34] ────○ [D13]                          │
+│  [VN]  ────○ [GND]                          │
+│  [VP]  ────○ [3V3]                          │
+│  [EN]  ────○ [EN]                           │
+│                                             │
+│  [GND] ────○ [D15]                          │
+│  [D2]  ────○ [D2]                           │
+│  [D4]  ────○ [D4]                           │
+│  [RX2] ────○ [RX2]                          │
+│  [TX2] ────○ [TX2]                          │
+│  [D5]  ────○ [D5]                           │
+│  [D18] ────○ [D18]                          │
+│  [D19] ────○ [D19]                          │
+│  [D21] ←───○ [D21] ─── CAN RX               │
+│  [RX0] ────○ [RX0]                          │
+│  [TX0] ────○ [TX0]                          │
+│  [D22] ←───○ [D22] ─── CAN TX               │
+│  [D23] ────○ [D23]                          │
+│  [GND] ────○ [GND]                          │
+│  [D16] ←───○ [D16] ─── OLED SDA/RTC SDA     │
+│  [D17] ←───○ [D17] ─── OLED SCL/RTC SCL     │
+│                                             │
+└─────────────────────────────────────────────┘
+```
 
-## Serial Commands
-Berikut adalah menu yang bisa digunakan di Serial monitor
-| Command | Description | Example |
-|---------|-------------|---------|
-| `HELP` | Menunjukkan semua command | `HELP` |
-| `TIME HH:MM:SS` | Set waktu (format 24jam) | `TIME 14:30:00` |
-| `DATE DD/MM/YYYY` | Set tanggal | `DATE 20/03/2024` |
-| `DAY 1-7` | Set hari (1=Minggu) | `DAY 3` |
-| `DEBUG` | Tampilkan info RTC | `DEBUG` |
-| `DEBUG ON/OFF` | nyalakan/matikan debug | `DEBUG ON` |
-| `SETUP` | masuk mode setup | `SETUP` |
-| `SAVE` | keluar mode setup | `SAVE` |
-| `PAGE 1\|2` | Ganti halaman | `PAGE 2` |
+### Pin Configuration di fox_config.h
+```
+// Hardware Pin Configuration
+#define SDA_PIN 16      // GPIO16 untuk OLED SDA dan RTC SDA
+#define SCL_PIN 17      // GPIO17 untuk OLED SCL dan RTC SCL
+#define BUTTON_PIN 25   // GPIO25 untuk tombol
+#define CAN_TX_PIN 22   // GPIO22 untuk CAN TX
+#define CAN_RX_PIN 21   // GPIO21 untuk CAN RX
+```
 
-## Konfigurasi CAN Bus
-- **Baud Rate CAN**: 250kbps
-- **Mode CAN**: Hanya Mendengarkan (Listen Only)
-- **Suhu Default**: 25°C
-- **ID CAN**:
-  - `0x0A010810`: Suhu Controller & Motor
-  - `0x0E6C0D09`: Suhu Baterai (5 sel)
-  - `0x0A010A10`: Suhu Baterai tunggal
+### Diagram Sistem Lengkap - I2C Star Topology
+```
+┌─────────────────────────────────────────────────────────┐
+│                     JAMFOXRS SYSTEM                     │
+│                                                         │
+│  ┌────────────┐      ┌────────────┐      ┌────────────┐ │
+│  │            │      │            │      │            │ │
+│  │   ESP32    │      │    RTC     │      │   OLED     │ │
+│  │   DEV      │      │   DS3231   │      │  128x32    │ │
+│  │  MODULE    │      │ (Tengah)   │      │   I2C      │ │
+│  │            │      │            │      │            │ │
+│  │            │      │            │      │            │ │
+│  │  GPIO16────┼──────┤ SDA        ├──────┤ SDA        │ │
+│  │            │      │            │      │            │ │
+│  │  GPIO17────┼──────┤ SCL        ├──────┤ SCL        │ │
+│  │            │      │            │      │            │ │
+│  │    3.3V────┼──────┤ VCC        ├──────┤ VCC        │ │
+│  │            │      │            │      │            │ │
+│  │    GND─────┼──────┤ GND        ├──────┤ GND        │ │
+│  │            │      │            │      │            │ │
+│  └────────────┘      └────────────┘      └────────────┘ │
+│          │                       │                      │
+│          │  ┌────────────┐       │                      │
+│          │  │            │       │                      │
+│          │  │   CAN      │       │                      │
+│          │  │ TRANSCEIVER│       │                      │
+│          │  │ MCP2551    │       │                      │
+│          │  │            │       │                      │
+│  GPIO22──┼──┤ TX         │       │                      │
+│          │  │            │       │                      │
+│  GPIO21──┼──┤ RX         │       │                      │
+│          │  │            │       │                      │
+│    3.3V──┼──┤ VCC        │       │                      │
+│          │  │            │       │                      │
+│    GND───┼──┤ GND        │       │                      │
+│          │  │            │       │                      │
+│          │  └────────────┘       │                      │
+│          │         │             │                      │
+│          │     ┌───┴───┐         │                      │
+│          │     │ CAN_H │         │                      │
+│          │     │ CAN_L │         │                      │
+│          │     └───┬───┘         │                      │
+│          │         │             │                      │
+│          │  ┌──────┴──────┐      │                      │
+│          │  │  FOX EV     │      │                      │
+│          │  │  CAN BUS    │      │                      │
+│          │  └─────────────┘      │                      │
+│                                  │                      │
+│  ┌────────────┐                  │                      │
+│  │            │                  │                      │
+│  │   PUSH     │                  │                      │
+│  │  BUTTON    │                  │                      │
+│  │            │                  │                      │
+│  │     ├──────┼──────────────────┘                      │
+│  │     │      │                                         │
+│  └─────┼──────┘                                         │
+│        │ GPIO25                                         │
+│        ▼                                                │
+│  ┌────────────┐                                         │
+│  │   GND      │                                         │
+│  └────────────┘                                         │
+│                                                         │
+└─────────────────────────────────────────────────────────┘
+```
 
-## Penggunaan Tombol
-- **Tekan sekali**: Berganti antara Halaman 1 dan Halaman 2
-- **Tombol dinonaktifkan** selama Mode Setup
+# Cara Instalasi di Arduino IDE:
 
-## Mode Setup
-- **Masuk**: Ketik `SETUP` di Serial Monitor
-- **Keluar**: Ketik `SAVE` atau tunggu 30 detik
-- **Display**: Menampilkan "SETUP" berkedip
+## Metode 1: Via Library Manager (Direkomendasikan)
 
-## Troubleshooting
-1. **OLED tidak menyala**: Cek koneksi I2C, coba address 0x3D
-2. **RTC tidak terdeteksi**: Cek baterai CR2032, verifikasi koneksi I2C
-3. **Data CAN tidak masuk**: Verifikasi baud rate 250kbps, cek resistor termination
-4. **Tombol tidak bekerja**: Cek wiring, pastikan INPUT_PULLUP aktif
-5. **Waktu tidak akurat**: Gunakan command TIME/DATE untuk set ulang
+Buka Arduino IDE
+Sketch → Include Library → Manage Libraries...
 
-## License
-MIT License
+Cari dan instal library berikut:
 
-## Notes
-Proyek ini untuk tujuan edukasi dan hobi. Gunakan dengan risiko sendiri pada kendaraan nyata.
+- Adafruit SSD1306
+- Adafruit GFX Library
+- RTClib by Adafruit 
+
+## Metode 2: Manual Install (jika perlu)
+
+Download dari GitHub:
+
+https://github.com/adafruit/Adafruit_SSD1306
+
+https://github.com/adafruit/Adafruit-GFX-Library
+
+Sketch → Include Library → Add .ZIP Library...
+Pilih file ZIP yang sudah didownload
+## Konfigurasi Board ESP32:
+### Tambahkan Board Manager URL:
+
+File → Preferences
+
+Di "Additional Boards Manager URLs", tambahkan:
+
+```
+https://espressif.github.io/arduino-esp32/package_esp32_index.json
+```
+
+### Instal ESP32 Board:
+
+Tools → Board → Boards Manager...
+
+Cari "ESP32"
+
+Install "ESP32 by Espressif Systems"
+
+Pilih Board:
+
+Tools → Board → ESP32 Arduino
+
+Pilih: ESP32 Dev Module
+## Struktur File Projek
+
+```JAMFOXRSV1
+├── JAMFOXRSV1.ino          # Main sketch
+├── fox_config.h            # Konfigurasi pin dan parameter
+├── fox_display.h           # Header display
+├── fox_display.cpp         # Implementasi display
+├── fox_canbus.h            # Header CAN bus
+├── fox_canbus.cpp          # Implementasi CAN bus
+├── fox_vehicle.h           # Header vehicle data
+├── fox_vehicle.cpp         # Implementasi vehicle data
+├── fox_rtc.h              # Header RTC
+└── fox_rtc.cpp            # Implementasi RTC
+```
+
+
+## Instal JAMFOXRS
+
+1. Download kode di github ini (download sebagai zip)
+
+1. Extract dan pastikan semua file berada di dalam satu folder
+
+1. Buat nama folder sama dengan file .ino (dalam kasus ini buat nama folder jadi JAMFOXRS)
+
+1. Buka file JAMFOXRS.ino di arduino IDE
+
+1. Silahkan edit file fox_config.h jika ingin mengubah beberapa hal sesuai keinginan
+
+1. Pastikan ESP32 sudak terkoneksi dengan benar
+
+1. Pilih board DOIT ESP32 DEVKIT V1
+
+1. Pilih port COM yang benar
+
+1. Upload sketch ke esp32 board
+
+1. Setelah upload selesai Buka Serial Monitor (115200 baud)
+
+## Serial Command
+
+Ketik HELP di serial command maka akan muncul
+
+```
+=== COMMAND LIST ===
+HELP          - Show this help
+DAY [1-7]     - Set day of week (1=Minggu, 7=SABTU)
+TIME HH:MM:SS - Set time (24h format)
+DATE DD/MM/YYYY - Set date
+DEBUG         - Show RTC info
+DEBUG ON/OFF  - Enable/disable periodic debug
+SETUP         - Enter setup mode
+SAVE          - Exit setup mode
+PAGE [1|2]    - Switch display page
+VEHICLE       - Show vehicle data
+CAPTURE ON    - Enable unknown CAN ID capture
+CAPTURE OFF   - Disable unknown CAN ID capture
+==========================
+Day mapping: 1=MINGGU, 2=SENIN, 3=SELASA,
+             4=RABU, 5=KAMIS, 6=JUMAT, 7=SABTU
+==========================
+```
+
+### Cara Set waktu dan tanggal
+
+#### Di Serial Monitor ketik seperti di bawah ini
+
+##### Ketik TIME JAM:MENIT:DETIK lalu enter
+
+```contoh: TIME 18:30:40 set waktu ke jam 18 menit 30 detik 40```
+
+##### Ketik DATE TANGGAL/BULAN/TAHUN lalu enter
+
+```contoh: DATE 17/09/2026 set waktu ke 17 Agustus 2026```
+
+##### Ketik DAY lalu diikuti angka 1-7 lalu enter
+
+```contoh: DAY 1 akan set hari ke Minggu```
+
+
+## ⚠️ Safety Warning
+
+- Jangan modifikasi kendaraan tanpa pengetahuan yang cukup
+   - Saya tidak bertanggung jawab atas kerusakan yang bisa ditimbulkan jika ada kesalahan dalam mengimplementasikan kode ini
+
+- DILARANG MEMPERJUALBELIKAN kode ini baik dalam bentuk software maupun fisik (hardware)
+   - Kode belum tentu bekerja di semua jenis kendaraan Polytron bahkan untuk yang setype sekalipun, karena itu dimohon untuk tidak memperjualkan kode ini ke umum
+   - Mungkin hanya bekerja di kendaraan dengan controller Votol EM-100
+   - Kesalahan mungkin dapat membuat baterai rusak apalagi jika sistem sewa anda bisa dituntut untuk mengganti baterai yang rusak
+
+- Test di area aman sebelum digunakan di jalan
+
+
+## 📄 License
+
+MIT License - bebas untuk digunakan dan dimodifikasi.
+
+## 🤝 Contributing
+
+Pull requests welcome! 
+Untuk major changes, buka issue terlebih dahulu.
+
+Dibuat dengan ❤️ untuk komunitas kendaraan listrik Indonesia
