@@ -12,7 +12,7 @@ Display jam untuk motor listrik Polytron Fox R/S disertai display suhu kendaraan
 - **Button Navigation**: Tombol untuk ganti halaman
 
 ## Hardware Requirements
-- ESP32 (WROOM-32)
+- ESP32 DOIT DEVKIT V1
 - OLED 128x32 (SSD1306, I2C)
 - DS3231 RTC dengan baterai CR2032
 - CAN Bus Transceiver (SN65HVD230) Kode CJMCU-230
