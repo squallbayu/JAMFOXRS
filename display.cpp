@@ -28,15 +28,9 @@ void initDisplay() {
     // Clear display
     display.clearDisplay();
     
-    // ===== SPLASH SCREEN "POLYTRON" DENGAN FreeSansBold12pt7b =====
-    // Sama dengan font angka suhu di halaman 2
+    // ===== SPLASH SCREEN "WELCOME" DENGAN FreeSansBold12pt7b =====
     display.setFont(&FreeSansBold12pt7b);
     display.setTextColor(SSD1306_WHITE);
-    
-    // Hitung posisi untuk "POLYTRON"
-    // FreeSansBold12pt: "POLYTRON" ≈ 100 pixel lebar
-    // x = (128 - 100)/2 = 14
-    // y = 18 untuk posisi vertikal yang pas (32-16)/2 + 2
     
     display.setCursor(0, 18);
     display.print("WELCOME");
@@ -56,6 +50,10 @@ void updateDisplay(int page){
     
     display.clearDisplay();
     display.setTextColor(SSD1306_WHITE);
+    
+    // RESET FONT KE DEFAULT DULU
+    display.setFont();           // Reset ke font default system
+    display.setTextSize(1);      // Reset ke size 1
     
     if(page == 1){
         // Page 1: Clock layout dengan font FreeSansBold18pt untuk jam
@@ -112,6 +110,9 @@ void updateDisplay(int page){
     }
     else if(page == 2){
         // Page 2: Temperature - Layout baru dengan text size 2 untuk angka
+        
+        // RESET FONT DULU
+        display.setFont();
         
         // ===== BARIS ATAS: LABEL DENGAN TEXT SIZE 1 =====
         display.setTextSize(1);
