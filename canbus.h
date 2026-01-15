@@ -1,13 +1,10 @@
-#ifndef CANBUS_H
-#define CANBUS_H
+#ifndef FOX_CANBUS_H
+#define FOX_CANBUS_H
 
 #include <Arduino.h>
 
-bool initCAN();
-void updateCAN();
-
-extern int tempCtrl;
-extern int tempMotor;
-extern int tempBatt;
+bool foxCANInit();
+void foxCANUpdate();
+bool foxCANIsInitialized();
 
 #endif
