@@ -33,18 +33,7 @@
 #define PAGE_CLOCK_ENABLED     true    // Page 1: Clock
 #define PAGE_TEMP_ENABLED      true    // Page 2: Temperature  
 #define PAGE_ELECTRICAL_ENABLED false  // Page 3: Electrical (currently disabled)
-
-// =============================================
-// PAGE 3 (ELECTRICAL) CONFIGURATION
-// =============================================
-
-// Sub-components configuration
-#define PAGE3_SHOW_VOLTAGE    true      // Tampilkan voltage
-#define PAGE3_SHOW_CURRENT    false     // Sembunyikan current (masih bermasalah)
-#define PAGE3_SHOW_SOC        false     // Tampilkan SOC (optional)
-
-// Uncomment kode di bawah jika ingin SOC di page 3 nanti:
-// #define PAGE3_SHOW_SOC true
+// Page 9 (Sport) is always enabled for automatic mode switching
 
 // Maximum number of user pages (excluding sport page)
 #if PAGE_CLOCK_ENABLED && PAGE_TEMP_ENABLED && PAGE_ELECTRICAL_ENABLED
@@ -73,6 +62,34 @@
 #define MODE_BYTE_CUTOFF_2 0x72
 #define MODE_BYTE_STANDBY_1 0x78
 #define MODE_BYTE_STANDBY_2 0x08
+#define MODE_BYTE_STANDBY_3 0xB8
+#define MODE_BYTE_CHARGING_1 0x61
+#define MODE_BYTE_CHARGING_2 0xA1
+#define MODE_BYTE_CHARGING_3 0xA9
+#define MODE_BYTE_CHARGING_4 0x69  // Charging dengan side stand
+#define MODE_BYTE_REVERSE 0x50
+#define MODE_BYTE_NEUTRAL 0x40
+
+// Macro untuk deteksi semua charging modes
+#define IS_CHARGING_MODE(b) ((b) == MODE_BYTE_CHARGING_1 || \
+                             (b) == MODE_BYTE_CHARGING_2 || \
+                             (b) == MODE_BYTE_CHARGING_3 || \
+                             (b) == MODE_BYTE_CHARGING_4)
+
+// Macro untuk deteksi semua known modes
+#define IS_KNOWN_MODE(b) ((b) == MODE_BYTE_PARK || \
+                          (b) == MODE_BYTE_DRIVE || \
+                          (b) == MODE_BYTE_SPORT || \
+                          (b) == MODE_BYTE_CRUISE || \
+                          (b) == MODE_BYTE_SPORT_CRUISE || \
+                          (b) == MODE_BYTE_CUTOFF_1 || \
+                          (b) == MODE_BYTE_CUTOFF_2 || \
+                          (b) == MODE_BYTE_STANDBY_1 || \
+                          (b) == MODE_BYTE_STANDBY_2 || \
+                          (b) == MODE_BYTE_STANDBY_3 || \
+                          (b) == MODE_BYTE_REVERSE || \
+                          (b) == MODE_BYTE_NEUTRAL || \
+                          IS_CHARGING_MODE(b))
 
 // Speed Configuration
 #define SPEED_TRIGGER_SPORT_PAGE 80  // Speed untuk trigger mode page sport (km/h)
@@ -109,6 +126,9 @@
 #define KMH_TEXT "km/h"
 #define RPM_TEXT "rpm"
 
+// Charging Mode Configuration
+#define CHARGING_TEXT "CHARGING"
+
 // Setup Mode Configuration
 #define SETUP_TEXT "SETUP"
 #define SETUP_TIMEOUT_MS 30000
@@ -128,6 +148,10 @@
 #define FOX_CAN_SOC           0x0A6E0D09UL  // Persentase baterai atau State of Charge (%)
 #define FOX_CAN_BMS_INFO      0x0A740D09UL  // Informasi BMS (Type & Merk) - IGNORE
 
+// CAN IDs untuk di-ignore (charger, dll)
+#define FOX_CAN_CHARGER_1     0x10261041UL  // Charger message 1
+#define FOX_CAN_CHARGER_2     0x0E64090DUL  // Charger message 2
+
 // =============================================
 // KONFIGURASI TAMPILAN
 // =============================================
@@ -142,6 +166,7 @@
 #define UPDATE_INTERVAL_ELECTRICAL_MS 500   // Update lebih cepat untuk page electrical
 #define UPDATE_INTERVAL_SPORT_MS 10
 #define UPDATE_INTERVAL_SETUP_MS 500
+#define UPDATE_INTERVAL_CHARGING_MS 5000    // Update lambat saat charging
 #define DEBUG_INTERVAL_MS 10000
 #define BLINK_INTERVAL_MS 500
 
@@ -170,7 +195,8 @@ enum FoxVehicleMode {
     MODE_REVERSE,
     MODE_NEUTRAL,
     MODE_CRUISE,
-    MODE_SPORT_CRUISE
+    MODE_SPORT_CRUISE,
+    MODE_CHARGING
 };
 
 // Display Pages Enumeration - Decimal Jump System
