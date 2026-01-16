@@ -2,8 +2,7 @@
 #define FOX_DISPLAY_H
 
 #include <Arduino.h>
-#include "fox_config.h"  // HARUS INCLUDE untuk PAGE_x_ENABLED
-
+#include "fox_config.h" 
 // Forward declaration saja
 struct FoxVehicleData;
 
@@ -17,7 +16,7 @@ bool foxDisplayIsInitialized();
 // Fungsi internal untuk tiap page
 void displayPageClock();
 void displayPageTemperature(const FoxVehicleData& vehicleData);
-void displayPageElectrical(const FoxVehicleData& vehicleData); // SELALU DEKLARASI
+void displayPageElectrical(const FoxVehicleData& vehicleData);
 void displayPageSport(const FoxVehicleData& vehicleData);
 
 // Fungsi helper untuk sport page
