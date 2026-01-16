@@ -115,11 +115,7 @@
 #define TEMP_LABEL_MOTOR "MOTOR"   // Label tulisan di atas suhu bldc dinamo motor
 #define TEMP_LABEL_BATT "BATT"     // Label tulisan di atas suhu baterai
 
-// Page 3: Electrical Configuration
-#define ELECTRICAL_LABEL_VOLT "VOLT"
-#define ELECTRICAL_LABEL_CURR "CURR"
-
-// Page 9: Sport Mode Configuration
+// Page 3: Sport Mode Configuration
 #define SPORT_TEXT "SPORT"         // Tulisan ketika masuk mode Sport
 #define CRUISE_TEXT "CRUISE"       // Tulisan ketika Cruise Control aktif
 #define SPORT_MODE_LABEL "SPORT MODE"  // Tulisan kecil ketika kecepatan mulai melewati batas
@@ -144,13 +140,9 @@
 #define FOX_CAN_TEMP_BATT_SGL 0x0A010A11UL  // Suhu baterai single
 
 // CAN IDs untuk data performa (dokumen Votol)
-#define FOX_CAN_VOLTAGE_CURRENT 0x0A6D0D09UL  // Tegangan (Byte 0-1) dan Arus (Byte 2-3)
+#define FOX_CAN_VOLTAGE       0x0A6D0D09UL  // Tegangan baterai
 #define FOX_CAN_SOC           0x0A6E0D09UL  // Persentase baterai atau State of Charge (%)
-#define FOX_CAN_BMS_INFO      0x0A740D09UL  // Informasi BMS (Type & Merk) - IGNORE
-
-// CAN IDs untuk di-ignore (charger, dll)
-#define FOX_CAN_CHARGER_1     0x10261041UL  // Charger message 1
-#define FOX_CAN_CHARGER_2     0x0E64090DUL  // Charger message 2
+#define FOX_CAN_CURRENT       0x0A6F0D09UL  // Arus (Current)
 
 // =============================================
 // KONFIGURASI TAMPILAN
