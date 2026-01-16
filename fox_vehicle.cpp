@@ -2,6 +2,15 @@
 #include "fox_config.h"
 #include <Arduino.h>
 
+// Lookup table SOC to BMS value (0-100%)
+const uint16_t socToBms[101] = {
+    0, 60,70,80,90,95,105,115,125,135,140,150,160,170,180,185,195,205,215,225,
+    230,240,250,260,270,275,285,295,305,315,320,330,340,350,360,365,375,385,395,405,
+    410,420,430,440,450,455,465,475,485,495,500,510,520,530,540,550,555,565,575,585,
+    590,600,610,620,630,635,645,655,665,675,680,690,700,710,720,725,735,745,755,765,
+    770,780,790,800,810,815,825,835,845,855,860,870,880,890,900,905,915,925,935,945,950
+};
+
 // Global variable
 FoxVehicleData vehicleData = {
     .mode = MODE_UNKNOWN,
@@ -19,14 +28,77 @@ FoxVehicleData vehicleData = {
     .rpmValid = false,
     .speedValid = false,
     .tempValid = false,
-    .voltageValid = false
+    .voltageValid = false,
+    .socValid = false
 };
 
 bool captureUnknownCAN = false;
 
+// Function prototypes untuk internal functions
+uint8_t bmsToSOC(uint16_t bmsValue);
+void parseSOC(const uint8_t* data, uint8_t len);
+void logUnknownMode(uint8_t modeByte);
+void logModeChange(uint8_t modeByte);
+
 void foxVehicleInit() {
     Serial.println("Vehicle module initialized");
     vehicleData.lastUpdate = millis();
+}
+
+// Fungsi: Convert BMS raw value to SOC percentage
+uint8_t bmsToSOC(uint16_t bmsValue) {
+    // Handle boundary cases
+    if(bmsValue >= socToBms[100]) return 100;  // >=950 = 100%
+    if(bmsValue <= socToBms[0]) return 0;      // <=0 = 0%
+    
+    // Linear search dalam lookup table
+    for(int soc = 1; soc <= 100; soc++) {
+        if(bmsValue == socToBms[soc]) {
+            return soc;  // Exact match
+        }
+        else if(bmsValue < socToBms[soc]) {
+            // Interpolasi antara soc-1 dan soc
+            uint16_t prevValue = socToBms[soc-1];
+            uint16_t currValue = socToBms[soc];
+            
+            // Linear interpolation
+            float ratio = (float)(bmsValue - prevValue) / (currValue - prevValue);
+            return soc - 1 + (uint8_t)(ratio + 0.5);  // Round to nearest integer
+        }
+    }
+    
+    return 0; // Fallback
+}
+
+// Fungsi parseSOC yang baru
+void parseSOC(const uint8_t* data, uint8_t len) {
+    if(len < 2) return;
+    
+    // Bytes 0-1 sebagai int16 (little-endian: byte0 LSB, byte1 MSB)
+    uint16_t bmsValue = (data[1] << 8) | data[0];
+    
+    // Debug logging (hanya jika berubah)
+    static uint16_t lastBmsValue = 0;
+    static uint8_t lastSOC = 0;
+    
+    if(bmsValue != lastBmsValue) {
+        uint8_t socPercent = bmsToSOC(bmsValue);
+        
+        if(socPercent != lastSOC) {
+            Serial.print("SOC UPDATE: BMS=");
+            Serial.print(bmsValue);
+            Serial.print(" -> ");
+            Serial.print(socPercent);
+            Serial.println("%");
+            
+            // Update vehicle data
+            vehicleData.soc = socPercent;
+            vehicleData.socValid = true;
+            lastSOC = socPercent;
+        }
+        
+        lastBmsValue = bmsValue;
+    }
 }
 
 // Fungsi utama
@@ -45,8 +117,61 @@ void foxVehicleUpdateFromCAN(uint32_t canId, const uint8_t* data, uint8_t len) {
     else if(canId == FOX_CAN_TEMP_BATT_SGL && len >= 6) {
         parseBatteryTempSingle(data, len);
     }
+    else if(canId == FOX_CAN_VOLTAGE_CURRENT && len >= 4) {
+        parseVoltageCurrent(data, len);
+    }
+    else if(canId == FOX_CAN_SOC && len >= 2) {
+        parseSOC(data, len);
+    }
+    else if(canId == FOX_CAN_BMS_INFO) {
+        // Ignore BMS info message (0x0A740D09)
+        if(captureUnknownCAN) {
+            Serial.print("BMS INFO IGNORED - ID: 0x");
+            Serial.println(canId, HEX);
+        }
+    }
     else {
         captureUnknownCANData(canId, data, len);
+    }
+}
+
+// PARSING VOLTAGE DAN CURRENT TANPA SERIAL LOGGING
+void parseVoltageCurrent(const uint8_t* data, uint8_t len) {
+    if(len >= 4) {
+        // ========================================
+        // VOLTAGE (Bytes 0-1)
+        // ========================================
+        uint16_t voltageRaw = (data[0] << 8) | data[1];
+        float newVoltage = voltageRaw * 0.1f;
+        
+        // ========================================
+        // CURRENT (Bytes 2-3)
+        // ========================================
+        uint16_t rawCurrent = (data[2] << 8) | data[3];
+        bool isDischarge = (rawCurrent & 0x8000) != 0;
+        float newCurrent;
+        
+        if (isDischarge) {
+            uint16_t complement = (0x10000 - rawCurrent);
+            newCurrent = -(complement * 0.1f);
+        } else {
+            newCurrent = rawCurrent * 0.1f;
+        }
+        
+        // Deadzone
+        if (fabs(newCurrent) < BMS_DEADZONE_CURRENT) {
+            newCurrent = 0.0f;
+        }
+        
+        // Update data tanpa logging serial
+        bool voltageChanged = fabs(newVoltage - vehicleData.voltage) > BMS_UPDATE_THRESHOLD_VOLTAGE;
+        bool currentChanged = fabs(newCurrent - vehicleData.current) > BMS_UPDATE_THRESHOLD_CURRENT;
+        
+        if (voltageChanged || currentChanged) {
+            vehicleData.voltage = newVoltage;
+            vehicleData.current = newCurrent;
+            vehicleData.voltageValid = true;
+        }
     }
 }
 
@@ -84,16 +209,9 @@ void parseModeStatus(const uint8_t* data, uint8_t len) {
 }
 
 void parseSpeedAndTemp(const uint8_t* data, uint8_t len) {
+    // Hanya parsing, tanpa logging speed yang mengganggu
     vehicleData.speedKmh = data[3];
     vehicleData.speedValid = true;
-    
-    static uint8_t lastSpeed = 0;
-    if(vehicleData.speedKmh != lastSpeed) {
-        Serial.print("Speed: ");
-        Serial.print(vehicleData.speedKmh);
-        Serial.println(" km/h");
-        lastSpeed = vehicleData.speedKmh;
-    }
 }
 
 void parseBatteryTemp5S(const uint8_t* data, uint8_t len) {
