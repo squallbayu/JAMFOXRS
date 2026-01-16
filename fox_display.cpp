@@ -1,11 +1,11 @@
 #include "fox_display.h"
 #include <Adafruit_SSD1306.h>
 #include <Wire.h>
+#include <math.h>
 #include "fox_config.h"
 #include "fox_rtc.h"
 #include "fox_vehicle.h"
 #include <Fonts/FreeSansBold18pt7b.h>
-#include <Fonts/FreeSansBold12pt7b.h>
 
 // Deklarasi global
 Adafruit_SSD1306 display(SCREEN_WIDTH, SCREEN_HEIGHT, &Wire, -1);
@@ -18,26 +18,59 @@ bool sportNeedsUpdate = false;
 unsigned long lastBlinkTime = 0;
 bool blinkState = true;
 
+// Helper function
+void showPageDisabled(int page) {
+    display.setTextSize(FONT_SIZE_MEDIUM);
+    display.setCursor(10, 12);
+    display.print("PAGE ");
+    display.print(page);
+    display.print(" DISABLED");
+}
+
 void foxDisplayInit() {
     Serial.println("Initializing OLED...");
     
+    // Reset I2C bus dulu untuk hindari NACK error
     Wire.begin(SDA_PIN, SCL_PIN);
+    Wire.setClock(100000); // 100kHz bukan 400kHz (default)
     delay(100);
     
-    if(!display.begin(SSD1306_SWITCHCAPVCC, OLED_ADDRESS)) {
-        Serial.println("OLED FAILED!");
+    // Coba multiple address untuk OLED
+    uint8_t oledAddresses[] = {0x3C, 0x3D}; // Common OLED addresses
+    bool oledFound = false;
+    byte error;
+    
+    for(int i = 0; i < 2; i++) {
+        Wire.beginTransmission(oledAddresses[i]);
+        error = Wire.endTransmission();
+        
+        if(error == 0) {
+            Serial.print("OLED found at 0x");
+            Serial.println(oledAddresses[i], HEX);
+            
+            if(!display.begin(SSD1306_SWITCHCAPVCC, oledAddresses[i])) {
+                Serial.println("OLED init failed at this address");
+            } else {
+                Serial.println("OLED initialized successfully!");
+                displayInitialized = true;
+                oledFound = true;
+                break;
+            }
+        }
+        delay(50);
+    }
+    
+    if(!oledFound) {
+        Serial.println("OLED NOT FOUND at any address!");
         displayInitialized = false;
         return;
     }
     
-    Serial.println("OLED OK!");
-    displayInitialized = true;
-    
     // Splash screen menggunakan konfigurasi
     display.clearDisplay();
-    display.setFont(&FreeSansBold12pt7b);
+    display.setTextSize(FONT_SIZE_MEDIUM);
     display.setTextColor(SSD1306_WHITE);
-    display.setCursor(0, 18);
+    display.setCursor(0, 10);
     display.print(SPLASH_TEXT);
     display.display();
     
@@ -80,19 +113,34 @@ void foxDisplayUpdate(int page) {
     display.setFont();
     display.setTextSize(FONT_SIZE_SMALL);
     
+    // Switch berdasarkan page
     if(page == PAGE_CLOCK) {
-        displayPageClock();
+        #if PAGE_CLOCK_ENABLED
+            displayPageClock();
+        #else
+            showPageDisabled(1);
+        #endif
     }
     else if(page == PAGE_TEMP) {
-        displayPageTemperature(vehicleData);
+        #if PAGE_TEMP_ENABLED
+            displayPageTemperature(vehicleData);
+        #else
+            showPageDisabled(2);
+        #endif
+    }
+    else if(page == PAGE_ELECTRICAL) {
+        displayPageElectrical(vehicleData);
     }
     else if(page == PAGE_SPORT) {
         displayPageSport(vehicleData);
     }
+    else {
+        showPageDisabled(page);
+    }
     
     display.display();
 }
-
+//PAGE 1 JAM
 void displayPageClock() {
     RTCDateTime dt = foxRTCGetDateTime();
     
@@ -134,7 +182,7 @@ void displayPageClock() {
     display.setCursor(rightCol, 25);
     display.print(yearStr);
 }
-
+//PAGE 2 TEMPERATUR SUHU
 void displayPageTemperature(const FoxVehicleData& vehicleData) {
     // Label menggunakan konfigurasi
     display.setTextSize(FONT_SIZE_SMALL);
@@ -153,6 +201,161 @@ void displayPageTemperature(const FoxVehicleData& vehicleData) {
     display.print(vehicleData.tempMotor);
     display.setCursor(86, 16);
     display.print(vehicleData.tempBattery);
+}
+//PAGE 3 ELECTRICAL
+void displayPageElectrical(const FoxVehicleData& vehicleData) {
+    #if PAGE_ELECTRICAL_ENABLED
+        // Layout tergantung config
+        int yPos = 16; // Default position untuk values
+        
+        // =============================================
+        // VOLTAGE DISPLAY (jika di-enable)
+        // =============================================
+        #if PAGE3_SHOW_VOLTAGE
+            // Label VOLT di atas
+            display.setTextSize(FONT_SIZE_SMALL);
+            display.setCursor(0, 4);
+            display.print(ELECTRICAL_LABEL_VOLT);
+            
+            // Value voltage
+            display.setTextSize(FONT_SIZE_MEDIUM);
+            float voltage = vehicleData.voltage;
+            
+            if(voltage < 0.1) {
+                // Jika voltage 0, tampilkan "0" bukan "0.0"
+                display.setCursor(0, yPos);
+                display.print("  0");
+            } else if(voltage < 10.0) {
+                // Voltage 1 digit: " 7.5"
+                char voltStr[6];
+                snprintf(voltStr, sizeof(voltStr), "%4.1f", voltage);
+                display.setCursor(0, yPos);
+                display.print(voltStr);
+            } else if(voltage < 100.0) {
+                // Voltage 2 digit: "75.5"
+                char voltStr[6];
+                snprintf(voltStr, sizeof(voltStr), "%4.1f", voltage);
+                display.setCursor(0, yPos);
+                display.print(voltStr);
+            } else {
+                // Voltage 3 digit: "100"
+                display.setCursor(0, yPos);
+                display.print((int)voltage);
+            }
+        #endif
+        
+        // =============================================
+        // CURRENT DISPLAY (jika di-enable)
+        // =============================================
+        #if PAGE3_SHOW_CURRENT
+            // Label CURR di kanan atas
+            display.setTextSize(FONT_SIZE_SMALL);
+            display.setCursor(86, 4);
+            display.print(ELECTRICAL_LABEL_CURR);
+            
+            // Value current
+            display.setTextSize(FONT_SIZE_MEDIUM);
+            float current = vehicleData.current;
+            float absCurrent = fabs(current);
+            
+            if(absCurrent < 0.1) {
+                // Current ~0, tampilkan "0" bukan "0.0"
+                display.setCursor(86, yPos);
+                display.print("  0");
+            } else {
+                if(current >= 0) {
+                    // POSITIVE CURRENT
+                    if(absCurrent < 10.0) {
+                        // 1 digit positif: "+2.5"
+                        char currStr[6];
+                        snprintf(currStr, sizeof(currStr), "+%3.1f", current);
+                        display.setCursor(76, yPos);
+                        display.print(currStr);
+                    } else if(absCurrent < 100.0) {
+                        // 2 digit positif: "+25"
+                        display.setCursor(71, yPos);
+                        display.print("+");
+                        display.print((int)current);
+                    } else {
+                        // 3 digit positif: "+100"
+                        display.setCursor(66, yPos);
+                        display.print("+");
+                        display.print((int)current);
+                    }
+                } else {
+                    // NEGATIVE CURRENT
+                    if(absCurrent < 10.0) {
+                        // 1 digit negatif: "-2.5"
+                        char currStr[6];
+                        snprintf(currStr, sizeof(currStr), "%4.1f", current);
+                        display.setCursor(76, yPos);
+                        display.print(currStr);
+                    } else if(absCurrent < 100.0) {
+                        // 2 digit negatif: "-25"
+                        display.setCursor(71, yPos);
+                        display.print((int)current);
+                    } else {
+                        // 3 digit negatif: "-100"
+                        display.setCursor(66, yPos);
+                        display.print((int)current);
+                    }
+                }
+            }
+        #endif
+        
+        // =============================================
+        // SOC DISPLAY (optional, jika di-enable)
+        // =============================================
+        #if PAGE3_SHOW_SOC
+            // Label SOC di tengah (jika voltage saja)
+            display.setTextSize(FONT_SIZE_SMALL);
+            display.setCursor(43, 4);
+            display.print("SOC");
+            
+            // Value SOC
+            display.setTextSize(FONT_SIZE_MEDIUM);
+            display.setCursor(43, yPos);
+            display.print(vehicleData.soc);
+            display.print("%");
+        #endif
+        
+        // =============================================
+        // SPECIAL CASE: Hanya VOLTAGE saja
+        // =============================================
+        #if PAGE3_SHOW_VOLTAGE && !PAGE3_SHOW_CURRENT && !PAGE3_SHOW_SOC
+            // Tampilkan voltage besar di tengah
+            display.setTextSize(FONT_SIZE_LARGE);
+            
+            float voltage = vehicleData.voltage;
+            if(voltage < 0.1) {
+                display.setCursor(40, 10);
+                display.print("0");
+                display.setTextSize(FONT_SIZE_SMALL);
+                display.setCursor(80, 20);
+                display.print("V");
+            } else if(voltage < 100.0) {
+                char voltStr[6];
+                snprintf(voltStr, sizeof(voltStr), "%4.1f", voltage);
+                display.setCursor(30, 10);
+                display.print(voltStr);
+                display.setTextSize(FONT_SIZE_SMALL);
+                display.setCursor(80, 20);
+                display.print("V");
+            } else {
+                display.setCursor(40, 10);
+                display.print((int)voltage);
+                display.setTextSize(FONT_SIZE_SMALL);
+                display.setCursor(80, 20);
+                display.print("V");
+            }
+        #endif
+        
+    #else
+        // Jika page disabled, tampilkan pesan
+        display.setTextSize(FONT_SIZE_MEDIUM);
+        display.setCursor(10, 12);
+        display.print("PAGE 3 DISABLED");
+    #endif
 }
 
 void displayPageSport(const FoxVehicleData& vehicleData) {
