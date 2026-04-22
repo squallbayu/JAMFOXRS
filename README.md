@@ -321,6 +321,7 @@ Day mapping: 1=MINGGU, 2=SENIN, 3=SELASA,
 
 ## ⚠️ Safety Warning
 
+- Controller dengan modul lain (seperti GAN) kemungkinan akan mengalami masalah di speedometer
 - Jangan modifikasi kendaraan tanpa pengetahuan yang cukup
    - Saya tidak bertanggung jawab atas kerusakan yang bisa ditimbulkan jika ada kesalahan dalam mengimplementasikan kode ini
 
